@@ -13,6 +13,7 @@ env.bak/
 venv.bak/
 
 # Project configuration / runtime storage containing sensitive info
+dot_config.json
 jarvis_config.json
 todos.json
 reminders.json

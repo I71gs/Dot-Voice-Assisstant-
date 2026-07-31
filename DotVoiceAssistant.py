@@ -19,14 +19,17 @@ import socket
 
 # Check for optional audio backends
 try:
+    import pyaudio  # pip install pyaudio or use pipwin on Windows to get prebuilt wheels
+    HAVE_PYAUDIO = True
+except Exception:
+    HAVE_PYAUDIO = False
+
+try:
     import sounddevice as sd
     import numpy as np
     HAVE_SOUNDDEVICE = True
 except Exception:
     HAVE_SOUNDDEVICE = False
-
-# PyAudio is no longer required; keep a compatibility flag for older code paths.
-HAVE_PYAUDIO = False
 
 # Initialize text-to-speech engine
 engine = pyttsx3.init('sapi5')
@@ -38,12 +41,12 @@ engine.setProperty('rate', 150)
 HISTORY_FILE = "command_history.json"
 TODO_FILE = "todos.json"
 REMINDERS_FILE = "reminders.json"
-CONFIG_FILE = "jarvis_config.json"
+CONFIG_FILE = "dot_config.json"
 
 # Default configuration
 DEFAULT_CONFIG = {
     'language': 'en-in',
-    'wake_word': 'jarvis',
+    'wake_word': 'dot',
     'music_dir': 'D:\\Shubham\\Music',
     'weather_api_key': '',
     'email_address': '',
@@ -98,10 +101,9 @@ def wish_me():
     else:
         greeting = "Good Evening! "
     
-    greeting += "I'm Jarvis, your voice assistant. How can I help?"
+    greeting += "I'm Dot, your voice assistant. How can I help?"
     speak(greeting)
     print_info(greeting)
-
 
 def record_audio_with_sounddevice(duration=5, fs=16000):
     """Record audio with sounddevice if PyAudio is unavailable"""
@@ -119,59 +121,59 @@ def take_command():
     """Take voice command from microphone"""
     r = sr.Recognizer()
 
-    # Prefer sounddevice when available; otherwise fall back to typed input.
-    if HAVE_SOUNDDEVICE:
+    # If PyAudio is not available, try sounddevice first, otherwise fall back to typed input
+    if not HAVE_PYAUDIO:
+        if HAVE_SOUNDDEVICE:
+            try:
+                audio = record_audio_with_sounddevice(duration=5)
+                print(f"{Colors.YELLOW}🔄 Recognizing...{Colors.ENDC}")
+                query = r.recognize_google(audio, language='en-in')
+                print_success(f"You said: {query}")
+                return query
+            except sr.UnknownValueError:
+                print_error("Could not understand. Please speak again...")
+                return "none"
+            except sr.RequestError:
+                print_error("Network issue. Please check internet connection...")
+                return "none"
+            except Exception as e:
+                print_error(f"Sounddevice error: {e}")
+                print_warning("Falling back to text input.")
+        else:
+            print_warning("PyAudio not installed and sounddevice unavailable — using text input.")
+
         try:
-            audio = record_audio_with_sounddevice(duration=5)
-            print(f"{Colors.YELLOW}🔄 Recognizing...{Colors.ENDC}")
-            query = r.recognize_google(audio, language='en-in')
-            print_success(f"You said: {query}")
-            return query
-        except sr.UnknownValueError:
-            print_error("Could not understand. Please speak again...")
+            typed = input("Type your command: ")
+            return typed
+        except Exception:
             return "none"
-        except sr.RequestError:
-            print_error("Network issue. Please check internet connection...")
-            return "none"
-        except Exception as e:
-            print_error(f"Sounddevice error: {e}")
-            print_warning("Falling back to text input.")
-    else:
-        print_warning("sounddevice is not available — using text input.")
 
     try:
-        typed = input("Type your command: ")
-        return typed
-    except Exception:
+        with sr.Microphone() as source:
+            print(f"{Colors.YELLOW}🎤 Listening...{Colors.ENDC}")
+            r.pause_threshold = 1
+            r.energy_threshold = 4000
+            # timeout waits for phrase to start; phrase_time_limit limits length
+            audio = r.listen(source, timeout=5, phrase_time_limit=10)
+
+        print(f"{Colors.YELLOW}🔄 Recognizing...{Colors.ENDC}")
+        query = r.recognize_google(audio, language='en-in')
+        print_success(f"You said: {query}")
+        return query
+
+    except sr.UnknownValueError:
+        print_error("Could not understand. Please speak again...")
         return "none"
-
-
-def handle_conversation(query):
-    """Handle casual chat and simple conversation"""
-    q = query.lower().strip()
-    if not q:
-        return False
-
-    if any(word in q for word in ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']):
-        response = "Hello! I'm Jarvis. How can I help you today?"
-    elif 'how are you' in q or 'how you doing' in q or 'what\'s up' in q:
-        response = "I'm doing well, thank you. I'm here and ready to help you."
-    elif 'what is your name' in q or 'who are you' in q or 'your name' in q:
-        response = "I am Jarvis, your voice assistant. I can help with tasks, information, and everyday conversation."
-    elif 'what can you do' in q or 'can you do' in q:
-        response = "I can help with time, reminders, files, music, web searches, apps, weather, notes, and simple chat."
-    elif 'thank' in q or 'thanks' in q:
-        response = "You're welcome. I'm always happy to help."
-    elif 'love you' in q or 'i like you' in q:
-        response = "That means a lot. I am here for you."
-    elif 'sorry' in q:
-        response = "No problem. We all make mistakes."
-    else:
-        return False
-
-    print_info(response)
-    speak(response)
-    return True
+    except sr.RequestError:
+        print_error("Network issue. Please check internet connection...")
+        return "none"
+    except sr.WaitTimeoutError:
+        # speech_recognition raises WaitTimeoutError when no phrase is detected in timeout
+        print_error("No input detected. Please try again...")
+        return "none"
+    except Exception as e:
+        print_error(f"Error: {e}")
+        return "none"
 
 # ==================== TIME & REMINDERS ====================
 
@@ -856,7 +858,7 @@ def set_language(language='en-in'):
     print_success(f"Language set to: {language}")
     speak("Language updated")
 
-def set_wake_word(word='jarvis'):
+def set_wake_word(word='dot'):
     """Set custom wake word"""
     config = load_config()
     config['wake_word'] = word.lower()
@@ -972,16 +974,14 @@ def show_help():
 # ==================== MAIN PROGRAM ====================
 
 if __name__ == "__main__":
-    print_header("JARVIS V2 - VOICE ASSISTANT")
-    print_info("Speak a command after listening prompt")
-    print_info("Say 'help' for available commands")
-    print_info("Press Ctrl+C to exit\n")
+    print_header("DOT VOICE ASSISTANT")
+    print_info("Say 'help' for available commands or 'exit' to quit.\n")
     
     wish_me()
     
-    try:
-        while True:
-            print(f"\n{Colors.BOLD}{Colors.BLUE}[JARVIS]${Colors.ENDC} ", end="", flush=True)
+    while True:
+        try:
+            print(f"\n{Colors.BOLD}{Colors.BLUE}[DOT]${Colors.ENDC} ", end="", flush=True)
             
             query = take_command().lower()
             
@@ -989,9 +989,6 @@ if __name__ == "__main__":
                 continue
             
             save_command_history(query)
-
-            if handle_conversation(query):
-                continue
             
             # TIME & REMINDERS
             if 'time' in query:
@@ -1020,7 +1017,7 @@ if __name__ == "__main__":
             elif 'recent files' in query:
                 get_recent_files()
             elif 'create file' in query:
-                create_file('new_file.txt', 'Created by Jarvis')
+                create_file('new_file.txt', 'Created by Dot')
             elif 'delete file' in query:
                 print_warning("Which file to delete?")
             elif 'navigate' in query:
@@ -1087,7 +1084,7 @@ if __name__ == "__main__":
             elif 'set language' in query:
                 set_language('en-in')
             elif 'set wake word' in query:
-                set_wake_word('jarvis')
+                set_wake_word('dot')
             
             # ENTERTAINMENT
             elif 'joke' in query:
@@ -1099,7 +1096,7 @@ if __name__ == "__main__":
             elif 'help' in query:
                 show_help()
             elif 'bye' in query or 'exit' in query or 'quit' in query:
-                print_success("Goodbye! Thanks for using Jarvis.")
+                print_success("Goodbye! Thanks for using Dot.")
                 speak("Goodbye")
                 break
             else:
@@ -1107,6 +1104,6 @@ if __name__ == "__main__":
                 speak("I didn't understand that. Please try again or say help for available commands.")
     
     except KeyboardInterrupt:
-        print_header("JARVIS SHUTTING DOWN")
+        print_header("DOT VOICE ASSISTANT SHUTTING DOWN")
         print_success("Goodbye!")
         speak("Goodbye")
