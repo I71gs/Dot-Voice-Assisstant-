@@ -19,17 +19,14 @@ import socket
 
 # Check for optional audio backends
 try:
-    import pyaudio  # pip install pyaudio or use pipwin on Windows to get prebuilt wheels
-    HAVE_PYAUDIO = True
-except Exception:
-    HAVE_PYAUDIO = False
-
-try:
     import sounddevice as sd
     import numpy as np
     HAVE_SOUNDDEVICE = True
 except Exception:
     HAVE_SOUNDDEVICE = False
+
+# PyAudio is no longer required; keep a compatibility flag for older code paths.
+HAVE_PYAUDIO = False
 
 # Initialize text-to-speech engine
 engine = pyttsx3.init('sapi5')
@@ -52,6 +49,10 @@ DEFAULT_CONFIG = {
     'email_address': '',
     'email_password': '',
     'timezone': 'UTC',
+    'voice_enabled': True,
+    'voice_input': False,
+    'genz_slangs': True,
+    'dark_jokes': True
 }
 
 # Color codes for terminal
@@ -83,7 +84,10 @@ def print_warning(text):
     print(f"{Colors.YELLOW}⚠ {text}{Colors.ENDC}")
 
 def speak(audio):
-    """Speak the given audio text"""
+    """Speak the given audio text if voice is enabled"""
+    config = load_config()
+    if not config.get('voice_enabled', True):
+        return
     try:
         engine.say(audio)
         engine.runAndWait()
@@ -105,6 +109,7 @@ def wish_me():
     speak(greeting)
     print_info(greeting)
 
+
 def record_audio_with_sounddevice(duration=5, fs=16000):
     """Record audio with sounddevice if PyAudio is unavailable"""
     if not HAVE_SOUNDDEVICE:
@@ -118,62 +123,101 @@ def record_audio_with_sounddevice(duration=5, fs=16000):
 
 
 def take_command():
-    """Take voice command from microphone"""
-    r = sr.Recognizer()
+    """Take voice or text command depending on settings"""
+    config = load_config()
+    voice_input_enabled = config.get('voice_input', False)
 
-    # If PyAudio is not available, try sounddevice first, otherwise fall back to typed input
-    if not HAVE_PYAUDIO:
-        if HAVE_SOUNDDEVICE:
-            try:
-                audio = record_audio_with_sounddevice(duration=5)
-                print(f"{Colors.YELLOW}🔄 Recognizing...{Colors.ENDC}")
-                query = r.recognize_google(audio, language='en-in')
-                print_success(f"You said: {query}")
-                return query
-            except sr.UnknownValueError:
-                print_error("Could not understand. Please speak again...")
-                return "none"
-            except sr.RequestError:
-                print_error("Network issue. Please check internet connection...")
-                return "none"
-            except Exception as e:
-                print_error(f"Sounddevice error: {e}")
-                print_warning("Falling back to text input.")
-        else:
-            print_warning("PyAudio not installed and sounddevice unavailable — using text input.")
-
+    if not voice_input_enabled:
         try:
             typed = input("Type your command: ")
             return typed
         except Exception:
             return "none"
 
+    r = sr.Recognizer()
+
+    # Prefer sounddevice when available; otherwise fall back to typed input.
+    if HAVE_SOUNDDEVICE:
+        try:
+            audio = record_audio_with_sounddevice(duration=5)
+            print(f"{Colors.YELLOW}🔄 Recognizing...{Colors.ENDC}")
+            query = r.recognize_google(audio, language='en-in')
+            print_success(f"You said: {query}")
+            return query
+        except sr.UnknownValueError:
+            print_error("Could not understand. Please speak again...")
+            return "none"
+        except sr.RequestError:
+            print_error("Network issue. Please check internet connection...")
+            return "none"
+        except Exception as e:
+            print_error(f"Sounddevice error: {e}")
+            print_warning("Falling back to text input.")
+    else:
+        print_warning("sounddevice is not available — using text input.")
+
     try:
-        with sr.Microphone() as source:
-            print(f"{Colors.YELLOW}🎤 Listening...{Colors.ENDC}")
-            r.pause_threshold = 1
-            r.energy_threshold = 4000
-            # timeout waits for phrase to start; phrase_time_limit limits length
-            audio = r.listen(source, timeout=5, phrase_time_limit=10)
+        typed = input("Type your command: ")
+        return typed
+    except Exception:
+        return "none"
 
-        print(f"{Colors.YELLOW}🔄 Recognizing...{Colors.ENDC}")
-        query = r.recognize_google(audio, language='en-in')
-        print_success(f"You said: {query}")
-        return query
 
-    except sr.UnknownValueError:
-        print_error("Could not understand. Please speak again...")
-        return "none"
-    except sr.RequestError:
-        print_error("Network issue. Please check internet connection...")
-        return "none"
-    except sr.WaitTimeoutError:
-        # speech_recognition raises WaitTimeoutError when no phrase is detected in timeout
-        print_error("No input detected. Please try again...")
-        return "none"
-    except Exception as e:
-        print_error(f"Error: {e}")
-        return "none"
+def handle_conversation(query):
+    """Handle casual chat, Gen Z slangs, and simple conversation"""
+    q = query.lower().strip()
+    if not q:
+        return False
+
+    config = load_config()
+    
+    # Gen Z slang processing if enabled
+    if config.get('genz_slangs', True):
+        # Dictionary of Genz Slangs -> Responses
+        slangs = {
+            'no cap': "For real, I never cap. 100% facts.",
+            'bet': "Bet! Let's get it.",
+            'sheesh': "Sheesh! That's absolute fire.",
+            'skibidi': "Skibidi toilet has ruined our brainrot levels. Real talk.",
+            'rizz': "My rizz is standard operational AI code. Infinite rizz, basically.",
+            'sigma': "You are looking at a certified, pure code sigma. Peak performance.",
+            'gyatt': "Gyatt! Let's keep it clean here.",
+            'slay': "Slay! You are absolutely killing it today.",
+            'sus': "That's looking a bit sus, not going to lie. Impostor vibes.",
+            'w': "That is an absolute W! We take those.",
+            'l ': "Oof, that is a massive L.",
+            'bruh': "Bruh... system files are literally sighing right now.",
+            'yapping': "Excuse me? I am not yapping, I am processing high-quality data outputs.",
+            'mid': "Honestly, that is completely mid. We deserve better.",
+            'opp': "The only opps I have are run-time exceptions and syntax errors.",
+            'ate': "And left no crumbs! Period."
+        }
+        for slang, response in slangs.items():
+            if slang in q:
+                print_info(response)
+                speak(response)
+                return True
+
+    if any(word in q for word in ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']):
+        response = "Hello! I'm Dot. How can I help you today?"
+    elif 'how are you' in q or 'how you doing' in q or 'what\'s up' in q:
+        response = "I'm doing well, thank you. I'm here and ready to help you."
+    elif 'who are you' in q or 'what is your name' in q or 'your name' in q:
+        response = "I am Dot, your voice assistant. I can help with tasks, information, and everyday conversation."
+    elif 'what can you do' in q or 'can you do' in q:
+        response = "I can help with time, reminders, files, music, web searches, apps, weather, notes, and simple chat."
+    elif 'thank' in q or 'thanks' in q:
+        response = "You're welcome. I'm always happy to help."
+    elif 'love you' in q or 'i like you' in q:
+        response = "That means a lot. I am here for you."
+    elif 'sorry' in q:
+        response = "No problem. We all make mistakes."
+    else:
+        return False
+
+    print_info(response)
+    speak(response)
+    return True
 
 # ==================== TIME & REMINDERS ====================
 
@@ -423,6 +467,23 @@ def navigate_directory(path):
         print_error(f"Navigation error: {e}")
 
 # ==================== MUSIC & MEDIA ====================
+
+def play_spotify():
+    """Launch Spotify app or open Spotify web player if not installed"""
+    try:
+        print_header("SPOTIFY MUSIC PLAYER")
+        # Try launching Spotify URI protocol first
+        print_info("Launching Spotify...")
+        speak("Opening Spotify")
+        webbrowser.open("spotify:")
+    except Exception as e:
+        print_error(f"Could not open Spotify protocol: {e}")
+        # Fall back to opening the Spotify web player
+        try:
+            print_info("Falling back to Spotify Web Player...")
+            webbrowser.open("https://open.spotify.com")
+        except Exception as web_err:
+            print_error(f"Could not open Spotify web player: {web_err}")
 
 def play_music():
     """Play music from Music directory"""
@@ -804,7 +865,10 @@ def send_email(to_email, subject, body):
 # ==================== ENTERTAINMENT ====================
 
 def tell_joke():
-    """Tell a random joke"""
+    """Tell a random joke, optionally including dark humor if enabled"""
+    config = load_config()
+    use_dark_jokes = config.get('dark_jokes', True)
+    
     jokes = [
         "Why don't scientists trust atoms? Because they make up everything!",
         "Why did the Python go to the gym? To get more Python muscle!",
@@ -813,6 +877,20 @@ def tell_joke():
         "How many programmers does it take to change a light bulb? None, that's a hardware problem!",
     ]
     
+    dark_jokes = [
+        "My grandfather has the heart of a lion... and a lifetime ban from the local zoo.",
+        "Give a man a match, and he'll be warm for a few hours. Set him on fire, and he will be warm for the rest of his life.",
+        "My wife told me that sex is much better on holiday. That wasn't a very nice postcard to receive.",
+        "I have a joke about trickle-down economics, but 99% of you will never get it.",
+        "Why do orphans play baseball? They don't know where home is.",
+        "You don't need a parachute to go skydiving. You only need a parachute to go skydiving twice.",
+        "My grief counselor died recently. Luckily, he was so good at his job, I don't even care.",
+        "I was reading a great book about an immortal dog the other day. It was impossible to put down."
+    ]
+    
+    if use_dark_jokes:
+        jokes.extend(dark_jokes)
+        
     joke = random.choice(jokes)
     print_success(joke)
     speak(joke)
@@ -849,6 +927,83 @@ def show_settings():
             print_info(f"{key}: {value}")
         else:
             print_info(f"{key}: ••••••••••")
+
+def interactive_settings_menu():
+    """Run an interactive settings menu tab in terminal"""
+    while True:
+        print_header("SETTINGS INTERACTIVE MENU")
+        config = load_config()
+        
+        # Display settings with menu index
+        options = [
+            ("Voice Output Enabled", config.get('voice_enabled', True)),
+            ("Voice Input Enabled", config.get('voice_input', False)),
+            ("Gen Z Slangs Enabled", config.get('genz_slangs', True)),
+            ("Dark Jokes Enabled", config.get('dark_jokes', True)),
+            ("Wake Word", config.get('wake_word', 'dot')),
+            ("Language", config.get('language', 'en-in')),
+            ("Music Directory", config.get('music_dir', '')),
+            ("Weather API Key", "Configured" if config.get('weather_api_key', '') else "Not Configured"),
+            ("Email Address", config.get('email_address', ''))
+        ]
+        
+        for idx, (label, val) in enumerate(options, 1):
+            print(f"  {idx}. {label:<30} : {val}")
+        print(f"  0. Back to Main Assistant")
+        
+        choice = input(f"\n{Colors.BOLD}{Colors.BLUE}Select setting number to edit/toggle (0 to exit):{Colors.ENDC} ").strip()
+        
+        if choice == '0':
+            print_success("Exiting settings menu.")
+            break
+        elif choice == '1':
+            config['voice_enabled'] = not config.get('voice_enabled', True)
+            save_config(config)
+            print_success(f"Voice output toggled to: {config['voice_enabled']}")
+        elif choice == '2':
+            config['voice_input'] = not config.get('voice_input', False)
+            save_config(config)
+            print_success(f"Voice input toggled to: {config['voice_input']}")
+        elif choice == '3':
+            config['genz_slangs'] = not config.get('genz_slangs', True)
+            save_config(config)
+            print_success(f"Gen Z slangs toggled to: {config['genz_slangs']}")
+        elif choice == '4':
+            config['dark_jokes'] = not config.get('dark_jokes', True)
+            save_config(config)
+            print_success(f"Dark jokes toggled to: {config['dark_jokes']}")
+        elif choice == '5':
+            new_val = input("Enter new wake word: ").strip()
+            if new_val:
+                config['wake_word'] = new_val.lower()
+                save_config(config)
+                print_success(f"Wake word set to: {new_val}")
+        elif choice == '6':
+            new_val = input("Enter language code (e.g. en-in, en-us): ").strip()
+            if new_val:
+                config['language'] = new_val.lower()
+                save_config(config)
+                print_success(f"Language set to: {new_val}")
+        elif choice == '7':
+            new_val = input("Enter path to Music Directory: ").strip()
+            if new_val:
+                config['music_dir'] = new_val
+                save_config(config)
+                print_success(f"Music directory set to: {new_val}")
+        elif choice == '8':
+            new_val = input("Enter Weather API Key: ").strip()
+            if new_val:
+                config['weather_api_key'] = new_val
+                save_config(config)
+                print_success("Weather API key saved.")
+        elif choice == '9':
+            new_val = input("Enter Email Address: ").strip()
+            if new_val:
+                config['email_address'] = new_val
+                save_config(config)
+                print_success(f"Email address set to: {new_val}")
+        else:
+            print_error("Invalid selection. Try again.")
 
 def set_language(language='en-in'):
     """Change language for speech recognition"""
@@ -916,8 +1071,9 @@ def show_help():
             'set alarm': 'Set alarm (say: set alarm)',
         },
         "🎵 MEDIA": {
-            'play music': 'Play random music',
-            'play video': 'Play random video',
+            'play spotify / spotify': 'Launch Spotify app or web player',
+            'play music': 'Play random local music',
+            'play video': 'Play random local video',
             'youtube [search]': 'Search YouTube',
             'radio': 'Play online radio',
             'read file': 'Read text file aloud',
@@ -953,13 +1109,18 @@ def show_help():
             'cancel': 'Cancel shutdown',
         },
         "⚙️ SETTINGS": {
-            'settings': 'Show current settings',
+            'settings menu': 'Open interactive settings console tab',
+            'settings': 'Show current config values',
             'voices': 'Show available voices',
             'set language': 'Change recognition language',
             'set wake word': 'Set custom wake word',
+            'toggle voice input': 'Switch between voice and text input',
+            'toggle voice output': 'Toggle speech response on/off',
+            'toggle genz': 'Toggle Gen Z slang matching on/off',
+            'toggle dark jokes': 'Toggle dark jokes filter on/off',
         },
         "🎭 FUN": {
-            'joke': 'Tell a joke',
+            'joke': 'Tell a joke (standard or dark comedy)',
             'images': 'Show images',
         },
     }
@@ -979,8 +1140,8 @@ if __name__ == "__main__":
     
     wish_me()
     
-    while True:
-        try:
+    try:
+        while True:
             print(f"\n{Colors.BOLD}{Colors.BLUE}[DOT]${Colors.ENDC} ", end="", flush=True)
             
             query = take_command().lower()
@@ -989,6 +1150,9 @@ if __name__ == "__main__":
                 continue
             
             save_command_history(query)
+
+            if handle_conversation(query):
+                continue
             
             # TIME & REMINDERS
             if 'time' in query:
@@ -999,6 +1163,8 @@ if __name__ == "__main__":
                 set_alarm(minutes=5)
             
             # MUSIC & MEDIA
+            elif 'spotify' in query or 'play spotify' in query:
+                play_spotify()
             elif 'play music' in query:
                 play_music()
             elif 'play video' in query:
@@ -1077,6 +1243,8 @@ if __name__ == "__main__":
                 open_application(app if app else 'notepad')
             
             # SETTINGS
+            elif 'settings menu' in query or 'interactive settings' in query or 'configure' in query:
+                interactive_settings_menu()
             elif 'settings' in query:
                 show_settings()
             elif 'voices' in query:
@@ -1085,6 +1253,35 @@ if __name__ == "__main__":
                 set_language('en-in')
             elif 'set wake word' in query:
                 set_wake_word('dot')
+            elif 'toggle voice input' in query or 'voice input' in query:
+                config = load_config()
+                config['voice_input'] = not config.get('voice_input', False)
+                save_config(config)
+                status = "enabled" if config['voice_input'] else "disabled (text mode)"
+                print_success(f"Voice input is now {status}.")
+                speak(f"Voice input is now {status}.")
+            elif 'toggle voice output' in query or 'toggle voice' in query or 'voice output' in query:
+                config = load_config()
+                config['voice_enabled'] = not config.get('voice_enabled', True)
+                save_config(config)
+                status = "enabled" if config['voice_enabled'] else "disabled"
+                print_success(f"Voice output is now {status}.")
+                if config['voice_enabled']:
+                    speak("Voice output is now enabled.")
+            elif 'toggle genz' in query or 'genz slang' in query:
+                config = load_config()
+                config['genz_slangs'] = not config.get('genz_slangs', True)
+                save_config(config)
+                status = "enabled" if config['genz_slangs'] else "disabled"
+                print_success(f"Gen Z slangs matching is now {status}.")
+                speak(f"Gen Z slang is now {status}.")
+            elif 'toggle dark jokes' in query or 'dark jokes' in query:
+                config = load_config()
+                config['dark_jokes'] = not config.get('dark_jokes', True)
+                save_config(config)
+                status = "enabled" if config['dark_jokes'] else "disabled"
+                print_success(f"Dark jokes are now {status}.")
+                speak(f"Dark jokes are now {status}.")
             
             # ENTERTAINMENT
             elif 'joke' in query:
