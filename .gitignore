@@ -1,0 +1,30 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Project configuration / runtime storage containing sensitive info
+jarvis_config.json
+todos.json
+reminders.json
+command_history.json
+
+# Audio and download binaries
+wheel_downloads/
+*.wav
+*.mp3
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

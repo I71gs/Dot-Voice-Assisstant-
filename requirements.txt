@@ -1,0 +1,7 @@
+pyttsx3>=2.90
+speechRecognition>=3.8.1
+psutil>=5.8.0
+requests>=2.25.1
+Pillow>=8.0.0
+sounddevice>=0.4.1; sys_platform == 'win32' or sys_platform == 'linux' or sys_platform == 'darwin'
+numpy>=1.19.0; sys_platform == 'win32' or sys_platform == 'linux' or sys_platform == 'darwin'

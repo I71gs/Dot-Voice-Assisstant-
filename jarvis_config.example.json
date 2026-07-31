@@ -1,0 +1,9 @@
+{
+  "language": "en-in",
+  "wake_word": "jarvis",
+  "music_dir": "D:\\Music",
+  "weather_api_key": "YOUR_OPENWEATHERMAP_API_KEY",
+  "email_address": "your_email@gmail.com",
+  "email_password": "your_app_password",
+  "timezone": "UTC"
+}
