@@ -5,5 +5,8 @@
   "weather_api_key": "YOUR_OPENWEATHERMAP_API_KEY",
   "email_address": "your_email@gmail.com",
   "email_password": "your_app_password",
-  "timezone": "UTC"
+  "timezone": "UTC",
+  "ai_enabled": false,
+  "ai_model": "gemma3:4b",
+  "ai_timeout": 15
 }

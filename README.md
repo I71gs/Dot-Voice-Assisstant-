@@ -102,9 +102,18 @@ Edit `dot_config.json` with your credentials/preferences:
   "weather_api_key": "YOUR_OPENWEATHERMAP_API_KEY",
   "email_address": "your_email@gmail.com",
   "email_password": "your_app_password",
-  "timezone": "UTC"
+  "timezone": "UTC",
+  "ai_enabled": false,
+  "ai_model": "gemma3:4b",
+  "ai_timeout": 15
 }
 ```
+
+Add these optional settings to enable local AI command translation via Ollama:
+
+- `ai_enabled`: `false` to keep the existing deterministic command engine only; `true` to enable Gemma fallback.
+- `ai_model`: the local Ollama model name, e.g. `gemma3:4b`.
+- `ai_timeout`: timeout in seconds for the Ollama model call.
 
 ---
 

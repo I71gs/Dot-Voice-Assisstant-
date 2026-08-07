@@ -2,6 +2,7 @@ import pyttsx3  # pip install pyttsx3
 import speech_recognition as sr  # pip install speechRecognition
 import datetime
 import os
+import shutil
 import subprocess
 import webbrowser
 import psutil  # pip install psutil
@@ -52,7 +53,10 @@ DEFAULT_CONFIG = {
     'voice_enabled': True,
     'voice_input': False,
     'genz_slangs': True,
-    'dark_jokes': True
+    'dark_jokes': True,
+    'ai_enabled': False,
+    'ai_model': 'gemma3:4b',
+    'ai_timeout': 15
 }
 
 # Color codes for terminal
@@ -1153,6 +1157,11 @@ if __name__ == "__main__":
 
             if handle_conversation(query):
                 continue
+
+            ai_command = translate_query_via_ai(query)
+            if ai_command:
+                print_info(f"AI translated to: {ai_command}")
+                query = ai_command.lower()
             
             # TIME & REMINDERS
             if 'time' in query:
