@@ -1,26 +1,34 @@
 # DOT Assistant — Phase 1 Requirements
-# No AI/voice dependencies in this phase.
+# Platform: Windows (some packages are Windows-only)
+# No AI / voice-recognition dependencies in this phase.
 
-# Core system
-psutil>=5.8.0
-requests>=2.25.1
-Pillow>=8.0.0
+# ── Terminal UI ──────────────────────────────────────────────────────────────
+rich>=13.0.0                        # Rich terminal output, tables, panels
 
-# Terminal UI
-rich>=13.0.0
+# ── System & Process Monitoring ──────────────────────────────────────────────
+psutil>=5.9.0                       # CPU, RAM, disk, battery, process info
 
-# Windows integrations
-pywin32>=305; sys_platform == 'win32'
-pycaw>=20230409; sys_platform == 'win32'
+# ── HTTP / Networking ────────────────────────────────────────────────────────
+requests>=2.28.0                    # Network info, weather API, public IP
 
-# Clipboard
-pyperclip>=1.8.0
+# ── Screenshots ──────────────────────────────────────────────────────────────
+Pillow>=10.0.0                      # Screen capture (ImageGrab)
 
-# Notifications
-plyer>=2.1.0
+# ── Clipboard ────────────────────────────────────────────────────────────────
+pyperclip>=1.8.2                    # Cross-platform clipboard get/set
 
-# Optional TTS (disabled by default)
-pyttsx3>=2.90
+# ── Notifications ────────────────────────────────────────────────────────────
+plyer>=2.1.0                        # Windows toast notifications
 
-# Testing
-pytest>=7.0.0
+# ── Windows-specific integrations ────────────────────────────────────────────
+pywin32>=306; sys_platform == "win32"   # Windows API (process mgmt, window control)
+pycaw>=20230409; sys_platform == "win32"  # Windows audio volume control (WASAPI)
+comtypes>=1.3.1; sys_platform == "win32" # Required by pycaw
+
+# ── Optional TTS ─────────────────────────────────────────────────────────────
+# Disabled by default (tts_enabled: false in settings).
+# Enable via: DOT > toggle tts
+pyttsx3>=2.90                       # Text-to-speech (SAPI5 on Windows)
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+pytest>=7.4.0
