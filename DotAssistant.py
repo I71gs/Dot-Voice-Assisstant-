@@ -1135,7 +1135,7 @@ def show_help():
 # ==================== MAIN PROGRAM ====================
 
 if __name__ == "__main__":
-    print_header("DOT VOICE ASSISTANT")
+    print_header("DOT ASSISTANT")
     print_info("Say 'help' for available commands or 'exit' to quit.\n")
     
     wish_me()
@@ -1301,6 +1301,6 @@ if __name__ == "__main__":
                 speak("I didn't understand that. Please try again or say help for available commands.")
     
     except KeyboardInterrupt:
-        print_header("DOT VOICE ASSISTANT SHUTTING DOWN")
+        print_header("DOT ASSISTANT SHUTTING DOWN")
         print_success("Goodbye!")
         speak("Goodbye")

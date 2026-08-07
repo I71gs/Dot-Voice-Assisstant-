@@ -1,6 +1,6 @@
-# 🤖 Dot Voice Assistant
+# 🤖 Dot Assistant
 
-An interactive, feature-packed desktop Python Voice Assistant named **Dot**. It features full speech recognition, text-to-speech output, fallback console text-input, system control capabilities, media player features, web integrations, and task productivity utilities.
+An interactive, feature-packed desktop Python Assistant named **Dot**. It features full speech recognition, text-to-speech output, fallback console text-input, system control capabilities, media player features, web integrations, and task productivity utilities.
 
 ---
 
@@ -37,8 +37,7 @@ An interactive, feature-packed desktop Python Voice Assistant named **Dot**. It 
 
 ```
 VoiceAssistant/
-├── DotVoiceAssistant_Complete.py  # Main complete voice assistant script (Recommended entry point)
-├── DotVoiceAssistant.py           # PyAudio/sounddevice dual backend version script
+├── DotAssistant.py                # Main assistant script
 ├── requirements.txt               # Python dependencies manifest
 ├── dot_config.example.json        # Configuration template (rename to dot_config.json)
 ├── .gitignore                     # Git ignore rules for cached, runtime, and secret files
@@ -114,7 +113,7 @@ Edit `dot_config.json` with your credentials/preferences:
 Run the main Dot Voice Assistant:
 
 ```bash
-python DotVoiceAssistant_Complete.py
+python DotAssistant.py
 ```
 
 ### Available Command Categories
