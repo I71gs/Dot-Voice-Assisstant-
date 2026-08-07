@@ -87,6 +87,101 @@ def print_error(text):
 def print_warning(text):
     print(f"{Colors.YELLOW}⚠ {text}{Colors.ENDC}")
 
+
+def is_ollama_available():
+    """Return True when the local Ollama CLI is installed."""
+    return shutil.which("ollama") is not None
+
+
+AI_TRANSLATION_PROMPT = """You are DOT Assistant's command normalizer.
+Translate the user's request into a single exact DOT command phrase that the assistant can execute.
+Do not add any explanation or commentary. Return only one line with the normalized command.
+If the request cannot safely be mapped to a known DOT command, reply with UNKNOWN.
+
+Valid command forms:
+  help
+  exit
+  open app <app>
+  open website <url>
+  open url <url>
+  search <query>
+  weather <city>
+  define <word>
+  trivia
+  joke
+  youtube <query>
+  play music
+  play video
+  play radio
+  list files
+  create file <filename>
+  delete file <filename>
+  read file <filename>
+  update file <filename>
+  add todo <task>
+  note <text>
+  show tasks
+  list reminders
+  set reminder in <delay> minutes
+  set reminder in <delay> hours
+  lock computer
+  shutdown
+  restart
+  cancel shutdown
+  system info
+  network info
+  processes
+  screenshot
+  settings menu
+  settings
+  toggle voice output
+  toggle voice input
+  toggle genz
+  toggle dark jokes
+
+User request: {query}
+Normalized command:
+"""
+
+
+def translate_query_via_ai(query):
+    config = load_config()
+    if not config.get('ai_enabled', False):
+        return None
+    if not is_ollama_available():
+        return None
+
+    model = config.get('ai_model', 'gemma3:4b')
+    timeout = int(config.get('ai_timeout', 15))
+    prompt = AI_TRANSLATION_PROMPT.format(query=query.strip())
+
+    try:
+        result = subprocess.run(
+            ["ollama", "run", model, prompt],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print_warning("AI translation timed out.")
+        return None
+    except Exception:
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not output_lines:
+        return None
+
+    command = output_lines[0].strip().strip('"').strip("'")
+    if command.upper() in {"UNKNOWN", "NONE", "NO_ACTION"}:
+        return None
+
+    return command
+
+
 def speak(audio):
     """Speak the given audio text if voice is enabled"""
     config = load_config()
